@@ -44,6 +44,18 @@ blocks:
     coordinate: [184, 12]
     rotation: 0
     state: enabled
+- name: samp_rate_0
+  id: variable
+  parameters:
+    comment: ''
+    value: '32000'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [392, 164.0]
+    rotation: 0
+    state: enabled
 - name: analog_sig_source_x_0
   id: analog_sig_source_x
   parameters:
@@ -63,7 +75,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [408, 84.0]
+    coordinate: [616, 100.0]
     rotation: 0
     state: true
 - name: analog_sig_source_x_1
@@ -85,7 +97,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [424, 332.0]
+    coordinate: [608, 332.0]
     rotation: 0
     state: true
 - name: emu_vars
@@ -140,10 +152,10 @@ blocks:
       \                 # velocidad de la luz\n\nSampling_time = 0.25e-9         \
       \              # 0.25 nano segundos de muestreo, se disminuye para mayor n\xFA\
       mero de muestras\ntime = np.arange(0, 35e-9, Sampling_time)    # vector de tiempo\
-      \ donde se observar\xE1 el CIR\ntime = np.round(time)                      \
-      \   # redondeo del tiempo \nt_rise = 0.5e-9                               #\
-      \ subida del tiempo de subida del PD\nt_fall = 1e-9                        \
-      \         # tiempo de ca\xEDda del PD\nh_led = 10 * (np.exp(-time / t_fall)\
+      \ donde se observar\xE1 el CIR\ntime = np.round(time, 12)                  \
+      \       # redondeo del tiempo \nt_rise = 0.5e-9                            \
+      \   # subida del tiempo de subida del PD\nt_fall = 1e-9                    \
+      \             # tiempo de ca\xEDda del PD\nh_led = 10 * (np.exp(-time / t_fall)\
       \ - np.exp(-time / t_rise))  # respuesta al impulso del PD\n\n"
   states:
     bus_sink: false
@@ -189,17 +201,60 @@ blocks:
     coordinate: [872, 212.0]
     rotation: 0
     state: true
-- name: epy_module_1
+- name: funciones
   id: epy_module
   parameters:
     alias: ''
     comment: ''
-    source_code: '# this module will be imported in the into your flowgraph'
+    source_code: "# this module will be imported in the into your flowgraph\n\n\n\n\
+      # function to calculate the d(xv,yv)\ndef dv(x1, y1, x2, y2, fv):\n\n\n\treturn\
+      \ np.abs((y1 - y2) * fv[0] - (x1 - x2) * fv[1] - x2 * y1 + x1 * y2) / np.sqrt((y1\
+      \ - y2) ** 2 + (x1 - x2) ** 2)\n\n\n# function to calculate the s(xv,yv)\ndef\
+      \ sv(x1, y1, z1, x2, y2, z2, fv):\n    if z1 <= z2:\n        s_v = (((y1 - y2)\
+      \ ** 2 + (x1 - x2) ** 2 + (fv[0] - x1) ** 2 + (fv[1] - y1) ** 2 -\n        \
+      \        ((fv[0] - x2) ** 2 + (fv[1] - y2) ** 2)) / (2 * np.sqrt((y1 - y2) **\
+      \ 2 + (x1 - x2) ** 2))) + z1\n    else:\n        s_v = (((y1 - y2) ** 2 + (x2\
+      \ - x1) ** 2 + (fv[0] - x2) ** 2 + (fv[1] - y2) ** 2 -\n                ((fv[0]\
+      \ - x1) ** 2 + (fv[1] - y1) ** 2)) / (2 * np.sqrt((y1 - y2) ** 2 + (x2 - x1)\
+      \ ** 2))) + z2\n    return s_v\n\n\n# %funcion para calcular vector y distancia\
+      \ entre dos puntos\ndef point_to_vector(x1, y1, z1, x2, y2, z2):\n    Vec =\
+      \ np.array([x2 - x1, y2 - y1, z2 - z1])\n    length = np.sqrt((x2 - x1) ** 2\
+      \ + (y2 - y1) ** 2 + (z2 - z1) ** 2)\n    \n    return Vec, length\n\n\n# Calculo\
+      \ del vector normal para transmisores\ndef norm_vec_trans(alpha, beta):\n  \
+      \  n = np.array([np.cos(np.deg2rad(alpha)) * np.sin(np.deg2rad(beta)),\n   \
+      \               np.sin(np.deg2rad(alpha)) * np.sin(np.deg2rad(beta)),\n    \
+      \              -np.cos(np.deg2rad(beta))])\n    return n\n\n# funcion para calcular\
+      \ el producto punto\ndef dot_product(a, b):\n    f = np.dot(a, b)\n    return\
+      \ f\n\n# Calculo del vector normal para receptores\ndef norm_vec_receiver(alpha,\
+      \ beta):\n    m = np.array([np.cos(np.deg2rad(alpha)) * np.sin(np.deg2rad(beta)),\n\
+      \                  np.sin(np.deg2rad(alpha)) * np.sin(np.deg2rad(beta)),\n \
+      \                 np.cos(np.deg2rad(beta))])\n    return m\n\n# funcion para\
+      \ calcular la ganancia\ndef gain(eta, incide, incide_r, fov):\n    if 0 <= incide_r\
+      \ <= 2 * fov:\n        g = (eta ** 2) / (np.sin(np.deg2rad(incide)) ** 2)\n\
+      \    else:\n        g = 0\n    return g\n\n# Function to calculate the  Pij\
+      \ for shadowing model\ndef P_expt(gv, fv, W, H, X, Y, t, es, d_v, s_v):\n  \
+      \  p = 0.1\n         \n    if (gv[0] >= 2 * d_v) and (gv[1] >= s_v):\n     \
+      \   w_int = gv[0] * W / 2\n        h_int = gv[1] * H / 2\n        A = [w_int,\
+      \ h_int]\n        x_int = fv[0] * X / 2\n        y_int = fv[1] * Y / 2\n   \
+      \     B = [x_int, y_int]\n        exp_value = np.dot(A, B)\n        f = p *\
+      \ t\n        est = -es * exp_value\n        d = np.exp(est)\n        Pij = d\n\
+      \    else:\n        Pij = 0\n    \n    return Pij\n\n\n# funcion para calcular\
+      \ el HLoS\ndef HLoS_direct(x_i, y_i, z_i, x_j, y_j, z_j, Ap, eta, alpha_i, alpha_j,\
+      \ beta_i, beta_j, incidencia, incidencia_r, m, fov, gv, fv, W, H, X, Y, t, es,\
+      \ c):\n    dv_ij = dv(x_i, y_i, x_j, y_j, fv)\n    sv_ij = sv(x_i, y_i, z_i,\
+      \ x_j, y_j, z_j, fv)\n    Pij = P_expt(gv, fv, W, H, X, Y, t, es, dv_ij, sv_ij)\n\
+      \    v1, d1 = point_to_vector(x_i, y_i, z_i, x_j, y_j, z_j)\n    Nnorm1 = norm_vec_trans(alpha_i,\
+      \ beta_i)\n    p1 = dot_product(v1, Nnorm1)\n    v2, d2 = point_to_vector(x_j,\
+      \ y_j, z_j, x_i, y_i, z_i)\n    Nnorm2 = norm_vec_receiver(alpha_j, beta_j)\n\
+      \    p2 = dot_product(v2, Nnorm2)\n    g = gain(eta, incidencia, incidencia_r,\
+      \ fov)\n    dm = d1 / c\n\n    if 0 <= incidencia <= 2 * fov:\n        m_HLoS\
+      \ = abs(((m + 1) * Ap / (2 * np.pi * d1 ** 2)) * (p1 ** m / d1) * (p2 / d2)\
+      \ * g * Pij)\n    else:\n        m_HLoS = 0\n\n    return m_HLoS, dm\n\n"
   states:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [24, 228.0]
+    coordinate: [32, 204.0]
     rotation: 0
     state: true
 - name: import_0
@@ -213,6 +268,72 @@ blocks:
     bus_source: false
     bus_structure: null
     coordinate: [280, 12.0]
+    rotation: 0
+    state: true
+- name: import_0_0
+  id: import
+  parameters:
+    alias: ''
+    comment: ''
+    imports: from cmath import exp, pi; from random import randint; import numpy as
+      np; import random;
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [208, 156.0]
+    rotation: 0
+    state: true
+- name: import_1
+  id: import
+  parameters:
+    alias: ''
+    comment: ''
+    imports: import sympy
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [208, 204.0]
+    rotation: 0
+    state: true
+- name: note_0
+  id: note
+  parameters:
+    alias: ''
+    comment: ''
+    note: PYTHON MODULES
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [32, 108.0]
+    rotation: 0
+    state: true
+- name: note_1
+  id: note
+  parameters:
+    alias: ''
+    comment: ''
+    note: PYTHON IMPORTS
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [208, 108.0]
+    rotation: 0
+    state: true
+- name: note_2
+  id: note
+  parameters:
+    alias: ''
+    comment: ''
+    note: GNU VARIABLES
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [392, 108.0]
     rotation: 0
     state: true
 - name: qtgui_freq_sink_x_0
@@ -292,7 +413,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [1120, 364.0]
+    coordinate: [1088, 396.0]
     rotation: 0
     state: true
 - name: qtgui_time_sink_x_0
@@ -389,7 +510,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [1112, 116.0]
+    coordinate: [1064, 84.0]
     rotation: 0
     state: true
 
